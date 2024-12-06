@@ -1,8 +1,11 @@
-use std::collections::HashMap;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
+#[derive(Deserialize, Serialize)]
 pub struct MarkovChain {
     pub state_map: HashMap<String, Vec<String>>,
+    #[serde(skip)]
     rng: rand::rngs::ThreadRng,
     state_size: usize,
 }
@@ -28,7 +31,7 @@ impl MarkovChain {
 
     pub fn train(&mut self, data: Vec<String>, state_size: usize) {
         self.state_size = state_size;
-        let mut state_map: HashMap<String, Vec<String>> = HashMap::new();
+        let mut state_map = self.state_map.clone();
         for sentence in data {
             let words = sentence.split_whitespace().collect::<Vec<&str>>();
             for (index, word) in words.iter().enumerate() {
@@ -46,7 +49,7 @@ impl MarkovChain {
                     }
                 }
                 let transition_states = state_map.get(&state).cloned();
-                match transition_states { 
+                match transition_states {
                     Some(mut transitions) => {
                         transitions.push(next_state.clone());
                         state_map.insert(state.clone(), transitions.clone());
@@ -59,7 +62,7 @@ impl MarkovChain {
         }
         self.state_map = state_map;
     }
-    
+
     pub fn generate(&mut self, length: usize) -> String {
         if self.state_size == 0 {
             return String::new();
@@ -79,17 +82,26 @@ impl MarkovChain {
                     while i < self.state_size && sentence.len() < length {
                         sentence.push(current_state[i].to_string());
                         i += 1;
-                    } 
+                    }
                     let last_word = sentence.pop().unwrap();
                     sentence.push(last_word + ".");
                     current_state = self.get_sentence_start_state().split(" ").map(|x| x.to_string()).collect::<Vec<String>>();
                 }
             }
-            
         }
         sentence.join(" ")
     }
-    
+
+    pub fn save(&self, path: &str) {
+        let serialized = serde_json::to_string(&self).unwrap();
+        std::fs::write(path, serialized).expect("Could not write to file");
+    }
+
+    pub fn load(path: &str) -> MarkovChain {
+        let serialized = std::fs::read_to_string(path).expect("Could not read file");
+        serde_json::from_str(&serialized).unwrap()
+    }
+
     pub fn complete(&mut self, sentence: String, min_len: usize) -> String {
         let mut sentence = sentence.split(" ").map(|x| x.to_string()).collect::<Vec<String>>();
         if self.state_size > sentence.len() {
@@ -121,18 +133,16 @@ impl MarkovChain {
                     current_state = self.get_sentence_start_state().split(" ").map(|x| x.to_string()).collect::<Vec<String>>();
                 }
             }
-            
         }
         sentence.join(" ")
     }
-    
+
     fn get_sentence_start_state(&mut self) -> String {
         let states = self.state_map.keys().cloned().collect::<Vec<String>>();
         let start_states = states.iter().filter(|x| x.chars().next().unwrap().is_uppercase()).map(|x| x.to_string()).collect::<Vec<String>>();
         let random_state = self.rng.gen_range(0..start_states.len());
         start_states[random_state].to_string()
-        
-    }    
+    }
     fn get_next_state(&mut self, state: &Vec<String>) -> Option<String> {
         let key = state.join(" ");
         let transitions = self.state_map.get(&key).cloned();
