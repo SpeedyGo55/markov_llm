@@ -157,22 +157,3 @@ impl MarkovChain {
         }
     }
 }
-
-pub enum TokenType {
-    Start,
-    End,
-    Middle,
-    Error,
-}
-
-impl PartialEq for TokenType {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (TokenType::Start, TokenType::Start) => true,
-            (TokenType::Middle, TokenType::Middle) => true,
-            (TokenType::End, TokenType::End) => true,
-            (TokenType::Error, TokenType::Error) => true,
-            _ => false,
-        }
-    }
-}
